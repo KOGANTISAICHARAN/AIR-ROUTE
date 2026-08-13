@@ -5,25 +5,23 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.data.DemoDataRepository
 import com.example.ui.components.BottomNavBar
-import com.example.ui.components.ScenarioSwitcherDialog
+import com.example.ui.components.DataInfoDialog
+import com.example.ui.components.LocationSearchDialog
+import com.example.ui.components.WhyScoreDialog
 import com.example.ui.screens.ActivityAdvisorScreen
 import com.example.ui.screens.AirRouteAiExplanationDialog
-import com.example.ui.screens.AlertsScreen
 import com.example.ui.screens.ForecastScreen
 import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.MapScreen
@@ -38,16 +36,36 @@ fun AirRouteApp(
     viewModel: AirRouteViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+
+    LaunchedEffect(Unit) {
+        viewModel.initializeWithContext(context)
+    }
+
     val state by viewModel.uiState.collectAsState()
     val airData = viewModel.getAirQualityData()
-    var isLocationMenuExpanded by remember { mutableStateOf(false) }
+    var showWhyScoreDialog by remember { mutableStateOf(false) }
 
     // Dialogs
-    if (state.isDemoPanelOpen) {
-        ScenarioSwitcherDialog(
-            currentScenario = state.currentScenario,
-            onScenarioSelected = { viewModel.setScenario(it) },
-            onDismiss = { viewModel.toggleDemoPanel(false) }
+    if (state.isDataInfoOpen) {
+        DataInfoDialog(
+            locationName = state.selectedLocation,
+            onDismiss = { viewModel.toggleDataInfo(false) }
+        )
+    }
+
+    if (state.isLocationSearchOpen) {
+        LocationSearchDialog(
+            currentLocation = state.selectedLocation,
+            onLocationSelected = { locName ->
+                viewModel.setLocation(locName)
+                viewModel.toggleLocationSearchDialog(false)
+            },
+            onUseGpsLocation = {
+                viewModel.setGpsLocation(17.3850, 78.4867, "GPS Location (Hyderabad)")
+                viewModel.toggleLocationSearchDialog(false)
+            },
+            onDismiss = { viewModel.toggleLocationSearchDialog(false) }
         )
     }
 
@@ -55,6 +73,13 @@ fun AirRouteApp(
         AirRouteAiExplanationDialog(
             data = airData,
             onDismiss = { viewModel.toggleAiExplanation(false) }
+        )
+    }
+
+    if (showWhyScoreDialog) {
+        WhyScoreDialog(
+            scoreData = airData.outdoorScore,
+            onDismiss = { showWhyScoreDialog = false }
         )
     }
 
@@ -78,7 +103,7 @@ fun AirRouteApp(
                 AuthScreenState.SIGN_IN -> {
                     SignInScreen(
                         onSignInSuccess = { name, email -> viewModel.handleSignInSuccess(name, email) },
-                        onGoogleSignIn = { viewModel.handleSignInSuccess("Sai Charan", "sai@airroute.app") },
+                        onGoogleSignIn = { viewModel.handleSignInSuccess("Sai Charan", "sai.charan@gmail.com") },
                         onCreateAccountClicked = { viewModel.navigateToAuthScreen(AuthScreenState.SIGN_UP) },
                         onForgotPasswordClicked = { viewModel.handleSignInSuccess("Sai Charan", "sai@airroute.app") }
                     )
@@ -87,7 +112,7 @@ fun AirRouteApp(
                 AuthScreenState.SIGN_UP -> {
                     SignUpScreen(
                         onSignUpSuccess = { name, email -> viewModel.handleSignUpSuccess(name, email) },
-                        onGoogleSignUp = { viewModel.handleSignUpSuccess("Sai Charan", "sai@airroute.app") },
+                        onGoogleSignUp = { viewModel.handleSignUpSuccess("Sai Charan", "sai.charan@gmail.com") },
                         onSignInClicked = { viewModel.navigateToAuthScreen(AuthScreenState.SIGN_IN) }
                     )
                 }
@@ -123,34 +148,14 @@ fun AirRouteApp(
                                             selectedActivityId = state.selectedActivityId,
                                             unreadAlertCount = airData.alerts.size,
                                             onActivitySelected = { viewModel.selectActivity(it) },
+                                            onWhyScoreClicked = { showWhyScoreDialog = true },
                                             onWhyThisTimeClicked = { viewModel.toggleAiExplanation(true) },
                                             onViewAiExplanationClicked = { viewModel.toggleAiExplanation(true) },
                                             onNotificationClicked = { viewModel.selectTab(com.example.ui.components.AirRouteTab.ACTIVITY) },
                                             onProfileClicked = { viewModel.selectTab(com.example.ui.components.AirRouteTab.PROFILE) },
-                                            onLocationSelectorClicked = { isLocationMenuExpanded = true },
-                                            onOpenDemoPanel = { viewModel.toggleDemoPanel(true) }
+                                            onLocationSelectorClicked = { viewModel.toggleLocationSearchDialog(true) },
+                                            onOpenDataInfo = { viewModel.toggleDataInfo(true) }
                                         )
-
-                                        // Location selection dropdown menu
-                                        DropdownMenu(
-                                            expanded = isLocationMenuExpanded,
-                                            onDismissRequest = { isLocationMenuExpanded = false }
-                                        ) {
-                                            DemoDataRepository.AVAILABLE_LOCATIONS.forEach { loc ->
-                                                DropdownMenuItem(
-                                                    text = {
-                                                        Text(
-                                                            text = loc,
-                                                            fontWeight = if (loc == state.selectedLocation) FontWeight.Bold else FontWeight.Normal
-                                                        )
-                                                    },
-                                                    onClick = {
-                                                        viewModel.setLocation(loc)
-                                                        isLocationMenuExpanded = false
-                                                    }
-                                                )
-                                            }
-                                        }
                                     }
 
                                     com.example.ui.components.AirRouteTab.FORECAST -> {
@@ -158,22 +163,40 @@ fun AirRouteApp(
                                     }
 
                                     com.example.ui.components.AirRouteTab.MAP -> {
-                                        MapScreen(data = airData)
+                                        MapScreen(
+                                            data = airData,
+                                            destinationName = state.destinationLocation,
+                                            onDestinationChanged = { viewModel.setDestinationLocation(it) }
+                                        )
                                     }
 
                                     com.example.ui.components.AirRouteTab.ACTIVITY -> {
                                         ActivityAdvisorScreen(
                                             data = airData,
-                                            preferredActivityId = state.selectedActivityId,
-                                            onSelectActivity = { viewModel.selectActivity(it) }
+                                            selectedActivityId = state.selectedActivityId,
+                                            plannedActivity = airData.plannedActivity,
+                                            activeSession = airData.activeSession,
+                                            activityHistory = airData.activityHistory,
+                                            onSelectActivity = { viewModel.selectActivity(it) },
+                                            onPlanActivity = { id, dur, start, dest -> viewModel.planActivity(id, dur, start, dest) },
+                                            onStartSession = { id, dur, dest -> viewModel.startActivitySession(id, dur, dest) },
+                                            onPauseSession = { viewModel.pauseActivitySession() },
+                                            onResumeSession = { viewModel.resumeActivitySession() },
+                                            onFinishSession = { viewModel.finishActivitySession() },
+                                            onScheduleReminder = { viewModel.scheduleActivityReminder(context) },
+                                            onNavigateToMapWithDestination = { dest ->
+                                                viewModel.setDestinationLocation(dest)
+                                                viewModel.selectTab(com.example.ui.components.AirRouteTab.MAP)
+                                            }
                                         )
                                     }
 
                                     com.example.ui.components.AirRouteTab.PROFILE -> {
                                         ProfileScreen(
                                             profile = state.userProfile,
-                                            onOpenDemoPanel = { viewModel.toggleDemoPanel(true) },
-                                            onSignOut = { viewModel.signOut() }
+                                            onOpenDataInfo = { viewModel.toggleDataInfo(true) },
+                                            onSignOut = { viewModel.signOut() },
+                                            onUpdateNotificationPreferences = { viewModel.updateNotificationPreferences(it) }
                                         )
                                     }
                                 }

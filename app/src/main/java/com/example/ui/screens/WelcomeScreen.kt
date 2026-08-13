@@ -253,13 +253,13 @@ fun WelcomeScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Continue as Demo
+                // Continue as Guest
                 TextButton(
                     onClick = onContinueAsDemo,
-                    modifier = Modifier.testTag("continue_as_demo_button")
+                    modifier = Modifier.testTag("continue_as_guest_button")
                 ) {
                     Text(
-                        text = "⚡ Continue as Demo (Hackathon Evaluator)",
+                        text = "Explore as Guest",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = DeepNavy

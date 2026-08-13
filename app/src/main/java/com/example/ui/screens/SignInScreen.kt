@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import android.util.Patterns
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,14 +22,15 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -36,6 +39,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,6 +56,8 @@ import com.example.ui.theme.CardSurfaceWhite
 import com.example.ui.theme.DeepNavy
 import com.example.ui.theme.EmeraldGreen
 import com.example.ui.theme.TextSecondary
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun SignInScreen(
@@ -65,6 +71,58 @@ fun SignInScreen(
     var password by remember { mutableStateOf("") }
     var isPasswordVisible by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var isAuthenticating by remember { mutableStateOf(false) }
+    var isGoogleLoading by remember { mutableStateOf(false) }
+
+    var showForgotPasswordDialog by remember { mutableStateOf(false) }
+    var forgotEmail by remember { mutableStateOf("") }
+    var forgotMessage by remember { mutableStateOf<String?>(null) }
+
+    val coroutineScope = rememberCoroutineScope()
+
+    if (showForgotPasswordDialog) {
+        AlertDialog(
+            onDismissRequest = { showForgotPasswordDialog = false },
+            title = { Text("Reset Password", fontWeight = FontWeight.Bold, color = DeepNavy) },
+            text = {
+                Column {
+                    Text("Enter your account email to receive a password reset link.", fontSize = 13.sp, color = TextSecondary)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = forgotEmail,
+                        onValueChange = { forgotEmail = it },
+                        label = { Text("Email Address") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    forgotMessage?.let { msg ->
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(text = msg, fontSize = 12.sp, color = EmeraldGreen, fontWeight = FontWeight.Bold)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (forgotEmail.isBlank() || !forgotEmail.contains("@")) {
+                            forgotMessage = "Please enter a valid email address."
+                        } else {
+                            forgotMessage = "Reset link sent to $forgotEmail! Check your inbox."
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen)
+                ) {
+                    Text("Send Reset Link")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showForgotPasswordDialog = false }) {
+                    Text("Cancel", color = DeepNavy)
+                }
+            }
+        )
+    }
 
     Box(
         modifier = modifier
@@ -80,24 +138,26 @@ fun SignInScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(text = "🌿", fontSize = 40.sp)
+            Text(text = "🌿", fontSize = 44.sp)
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Welcome back.",
-                fontSize = 28.sp,
+                text = "AIRROUTE",
+                fontSize = 24.sp,
                 fontWeight = FontWeight.ExtraBold,
-                color = DeepNavy
+                color = DeepNavy,
+                letterSpacing = 1.sp
             )
 
             Text(
-                text = "Let's check the air before you head out.",
-                fontSize = 14.sp,
-                color = TextSecondary
+                text = "Know before you go.",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                color = EmeraldGreen
             )
 
-            Spacer(modifier = Modifier.height(28.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             Card(
                 shape = RoundedCornerShape(24.dp),
@@ -110,21 +170,41 @@ fun SignInScreen(
                         .fillMaxWidth()
                         .padding(20.dp)
                 ) {
+                    Text(
+                        text = "Sign In",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = DeepNavy
+                    )
+
+                    Text(
+                        text = "Enter your credentials to access live PM2.5 forecasts.",
+                        fontSize = 12.sp,
+                        color = TextSecondary
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
                     errorMessage?.let { err ->
                         Text(
                             text = err,
                             color = Color(0xFFDC2626),
                             fontSize = 12.sp,
-                            modifier = Modifier.padding(bottom = 8.dp)
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(bottom = 10.dp)
                         )
                     }
 
                     OutlinedTextField(
                         value = email,
-                        onValueChange = { email = it },
-                        label = { Text("Email") },
-                        leadingIcon = { Icon(Icons.Default.Email, contentDescription = "Email") },
+                        onValueChange = {
+                            email = it
+                            errorMessage = null
+                        },
+                        label = { Text("Email Address") },
+                        leadingIcon = { Icon(Icons.Default.Email, contentDescription = "Email", tint = DeepNavy) },
                         singleLine = true,
+                        enabled = !isAuthenticating && !isGoogleLoading,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier
@@ -136,18 +216,26 @@ fun SignInScreen(
 
                     OutlinedTextField(
                         value = password,
-                        onValueChange = { password = it },
+                        onValueChange = {
+                            password = it
+                            errorMessage = null
+                        },
                         label = { Text("Password") },
-                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "Password") },
+                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "Password", tint = DeepNavy) },
                         trailingIcon = {
-                            IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
+                            IconButton(
+                                onClick = { isPasswordVisible = !isPasswordVisible },
+                                modifier = Modifier.testTag("signin_toggle_password")
+                            ) {
                                 Icon(
                                     imageVector = if (isPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                    contentDescription = "Toggle password visibility"
+                                    contentDescription = if (isPasswordVisible) "Hide password" else "Show password",
+                                    tint = DeepNavy
                                 )
                             }
                         },
                         singleLine = true,
+                        enabled = !isAuthenticating && !isGoogleLoading,
                         visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         shape = RoundedCornerShape(14.dp),
@@ -160,21 +248,36 @@ fun SignInScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End
                     ) {
-                        TextButton(onClick = onForgotPasswordClicked) {
+                        TextButton(
+                            onClick = {
+                                forgotEmail = email
+                                forgotMessage = null
+                                showForgotPasswordDialog = true
+                            }
+                        ) {
                             Text("Forgot password?", fontSize = 12.sp, color = DeepNavy)
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     Button(
                         onClick = {
-                            if (email.isBlank() || password.isBlank()) {
-                                errorMessage = "Please enter your email and password."
+                            if (email.isBlank() || !email.contains("@")) {
+                                errorMessage = "Please enter a valid email address (e.g., sai@airroute.app)."
+                            } else if (password.length < 4) {
+                                errorMessage = "Password must be at least 4 characters."
                             } else {
-                                onSignInSuccess(email.split("@").firstOrNull()?.capitalize() ?: "Sai", email)
+                                isAuthenticating = true
+                                coroutineScope.launch {
+                                    delay(600) // Realistic authentication processing state
+                                    isAuthenticating = false
+                                    val name = email.split("@").firstOrNull()?.replaceFirstChar { it.uppercase() } ?: "Sai Charan"
+                                    onSignInSuccess(name, email)
+                                }
                             }
                         },
+                        enabled = !isAuthenticating && !isGoogleLoading,
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
                         modifier = Modifier
@@ -182,7 +285,11 @@ fun SignInScreen(
                             .height(50.dp)
                             .testTag("signin_submit_button")
                     ) {
-                        Text("Sign In", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        if (isAuthenticating) {
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                        } else {
+                            Text("Sign In", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -205,17 +312,29 @@ fun SignInScreen(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     OutlinedButton(
-                        onClick = onGoogleSignIn,
+                        onClick = {
+                            isGoogleLoading = true
+                            coroutineScope.launch {
+                                delay(700)
+                                isGoogleLoading = false
+                                onSignInSuccess("Sai Charan", "sai.charan@gmail.com")
+                            }
+                        },
+                        enabled = !isAuthenticating && !isGoogleLoading,
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(50.dp)
                             .testTag("signin_google_button")
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("🌐 ", fontSize = 16.sp)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Continue with Google", fontWeight = FontWeight.Bold, color = DeepNavy)
+                        if (isGoogleLoading) {
+                            CircularProgressIndicator(color = DeepNavy, modifier = Modifier.size(22.dp))
+                        } else {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("🌐 ", fontSize = 16.sp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Continue with Google", fontWeight = FontWeight.Bold, color = DeepNavy)
+                            }
                         }
                     }
                 }
@@ -232,3 +351,4 @@ fun SignInScreen(
         }
     }
 }
+
